@@ -1,20 +1,26 @@
 import { useEffect, useState } from "react";
-import { User, Trash2 } from "lucide-react";
+import { User, Trash2, Pencil, RefreshCw } from "lucide-react";
+import { Link } from "react-router-dom";
 import { api } from "../services/api";
 
 export default function UsersManagement() {
   const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const loadUsers = async () => {
+    setLoading(true);
+    try {
+      const response = await api.get("/users");
+      const payload = response.data.data || response.data;
+      setUsers(payload);
+    } catch (err) {
+      console.error("Erro ao buscar usuários", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadUsers() {
-      try {
-        const response = await api.get("/users");
-        const payload = response.data.data || response.data;
-        setUsers(payload);
-      } catch (err) {
-        console.error("Erro ao buscar usuários", err);
-      }
-    }
     loadUsers();
   }, []);
 
@@ -31,15 +37,24 @@ export default function UsersManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Gerenciamento de Usuários</h2>
           <p className="text-gray-500">Visualize e remova contas de usuários.</p>
         </div>
+        <button
+          onClick={loadUsers}
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          Atualizar
+        </button>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <table className="w-full text-sm text-left">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
           <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
             <tr>
               <th className="px-6 py-4">Nome</th>
@@ -70,14 +85,20 @@ export default function UsersManagement() {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-center">
-                  <button onClick={() => handleDelete(u.id)} className="text-red-500 hover:text-red-700 transition-colors p-2 hover:bg-red-50 rounded-lg">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center justify-center gap-2">
+                    <Link to={`/users/${u.id}/edit`} className="text-blue-500 hover:text-blue-700 transition-colors p-2 hover:bg-blue-50 rounded-lg">
+                      <Pencil className="w-4 h-4" />
+                    </Link>
+                    <button onClick={() => handleDelete(u.id)} className="text-red-500 hover:text-red-700 transition-colors p-2 hover:bg-red-50 rounded-lg">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
         {users.length === 0 && (
           <div className="p-8 text-center text-gray-500">Nenhum usuário encontrado.</div>
         )}
