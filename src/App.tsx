@@ -7,13 +7,15 @@ import ContestsManagement from "./pages/ContestsManagement.tsx";
 import ExamDetails from "./pages/ExamDetails.tsx";
 
 import { AuthProvider } from "./contexts/AuthContext.tsx";
+import { AlertProvider } from "./contexts/AlertContext.tsx";
 import ProtectedRoute from "./components/ProtectedRoute.tsx";
 import Login from "./pages/Login.tsx";
 
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <AlertProvider>
+        <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route
@@ -67,7 +69,8 @@ function App() {
             }
           />
         </Routes>
-      </BrowserRouter>
+        </BrowserRouter>
+      </AlertProvider>
     </AuthProvider>
   );
 }

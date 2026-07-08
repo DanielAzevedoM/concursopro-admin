@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { ApiService } from "../../services/ApiService";
+import { useAlert } from "../../contexts/AlertContext";
 
 interface ExamModalProps {
   isOpen: boolean;
@@ -9,8 +10,8 @@ interface ExamModalProps {
   categories: any[];
   initialData?: any;
 }
-
 export default function ExamModal({ isOpen, onClose, onSuccess, categories, initialData }: ExamModalProps) {
+  const { showAlert } = useAlert();
   const [formData, setFormData] = useState({ 
     categoryId: "", 
     name: "", 
@@ -54,9 +55,18 @@ export default function ExamModal({ isOpen, onClose, onSuccess, categories, init
       setFormData({ categoryId: "", name: "", institution: "", year: new Date().getFullYear().toString(), role: "" });
       onSuccess();
       onClose();
+      showAlert({
+        type: "success",
+        title: "Sucesso!",
+        message: "Prova salva com sucesso!"
+      });
     } catch (err) {
       console.error("Erro ao salvar prova", err);
-      alert("Erro ao salvar prova.");
+      showAlert({
+        type: "error",
+        title: "Erro",
+        message: "Erro ao salvar prova."
+      });
     } finally {
       setSaving(false);
     }

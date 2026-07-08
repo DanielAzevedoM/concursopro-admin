@@ -4,8 +4,10 @@ import { Folder, FileText, Plus, Pencil, Trash2 } from "lucide-react";
 import { api } from "../services/api";
 import CategoryModal from "../components/modals/CategoryModal";
 import ExamModal from "../components/modals/ExamModal";
+import { useAlert } from "../contexts/AlertContext";
 
 export default function ContestsManagement() {
+  const { showAlert } = useAlert();
   const navigate = useNavigate();
   const [categories, setCategories] = useState<any[]>([]);
   const [exams, setExams] = useState<any[]>([]);
@@ -32,27 +34,55 @@ export default function ContestsManagement() {
   }, []);
 
   const handleDeleteCategory = async (id: string) => {
-    if (window.confirm("ATENÇÃO: Excluir este concurso apagará TODAS as provas e questões vinculadas a ele. Deseja continuar?")) {
-      try {
-        await api.delete(`/categories/${id}`);
-        loadData();
-      } catch (err) {
-        console.error("Erro ao deletar categoria", err);
-        alert("Erro ao deletar categoria.");
+    showAlert({
+      type: "warning",
+      title: "Excluir Concurso",
+      message: "ATENÇÃO: Excluir este concurso apagará TODAS as provas e questões vinculadas a ele. Deseja continuar?",
+      onConfirm: async () => {
+        try {
+          await api.delete(`/categories/${id}`);
+          loadData();
+          showAlert({
+            type: "success",
+            title: "Sucesso!",
+            message: "Concurso excluído com sucesso."
+          });
+        } catch (err) {
+          console.error("Erro ao deletar categoria", err);
+          showAlert({
+            type: "error",
+            title: "Erro",
+            message: "Erro ao deletar concurso."
+          });
+        }
       }
-    }
+    });
   };
 
   const handleDeleteExam = async (id: string) => {
-    if (window.confirm("ATENÇÃO: Excluir esta prova apagará TODAS as questões vinculadas a ela. Deseja continuar?")) {
-      try {
-        await api.delete(`/categories/exams/${id}`);
-        loadData();
-      } catch (err) {
-        console.error("Erro ao deletar prova", err);
-        alert("Erro ao deletar prova.");
+    showAlert({
+      type: "warning",
+      title: "Excluir Prova",
+      message: "ATENÇÃO: Excluir esta prova apagará TODAS as questões vinculadas a ela. Deseja continuar?",
+      onConfirm: async () => {
+        try {
+          await api.delete(`/categories/exams/${id}`);
+          loadData();
+          showAlert({
+            type: "success",
+            title: "Sucesso!",
+            message: "Prova excluída com sucesso."
+          });
+        } catch (err) {
+          console.error("Erro ao deletar prova", err);
+          showAlert({
+            type: "error",
+            title: "Erro",
+            message: "Erro ao deletar prova."
+          });
+        }
       }
-    }
+    });
   };
 
   const openNewCategoryModal = () => {

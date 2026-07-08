@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Save, Eye, FileImage, UploadCloud, X } from "lucide-react";
 import { api } from "../services/api";
+import { useAlert } from "../contexts/AlertContext";
 
 interface ParsedQuestion {
   text: string;
@@ -17,6 +18,7 @@ interface ParsedQuestion {
 }
 
 export default function QuestionsImporter() {
+  const { showAlert } = useAlert();
   const [activeTab, setActiveTab] = useState<"BULK" | "SINGLE">("BULK");
   
   // Shared State
@@ -104,7 +106,11 @@ export default function QuestionsImporter() {
 
   const handleSaveBulk = async () => {
     if (!selectedCategory || !selectedExam) {
-      alert("Selecione um Concurso e uma Prova antes de salvar.");
+      showAlert({
+        type: "warning",
+        title: "Atenção",
+        message: "Selecione um Concurso e uma Prova antes de salvar."
+      });
       return;
     }
 
@@ -117,13 +123,21 @@ export default function QuestionsImporter() {
 
     try {
       await api.post("/questions/bulk", { questions: payload });
-      alert("Questões em massa salvas com sucesso!");
+      showAlert({
+        type: "success",
+        title: "Sucesso!",
+        message: "Questões em massa salvas com sucesso!"
+      });
       setRawText("");
       setGlobalExplanation("");
       setParsedQuestions([]);
       setStep("INPUT");
     } catch (err) {
-      alert("Erro ao salvar questões.");
+      showAlert({
+        type: "error",
+        title: "Erro",
+        message: "Erro ao salvar questões."
+      });
     }
   };
 
@@ -141,12 +155,20 @@ export default function QuestionsImporter() {
 
   const handleSaveSingle = async () => {
     if (!selectedCategory || !selectedExam) {
-      alert("Selecione um Concurso e uma Prova antes de salvar.");
+      showAlert({
+        type: "warning",
+        title: "Atenção",
+        message: "Selecione um Concurso e uma Prova antes de salvar."
+      });
       return;
     }
 
     if (!singleQuestion.text.trim()) {
-      alert("O enunciado é obrigatório.");
+      showAlert({
+        type: "warning",
+        title: "Atenção",
+        message: "O enunciado é obrigatório."
+      });
       return;
     }
 
@@ -159,13 +181,21 @@ export default function QuestionsImporter() {
     try {
       // Reusing bulk endpoint for a single question since we don't have a specific POST /questions in the controller.
       await api.post("/questions/bulk", { questions: [payload] });
-      alert("Questão salva com sucesso!");
+      showAlert({
+        type: "success",
+        title: "Sucesso!",
+        message: "Questão salva com sucesso!"
+      });
       setSingleQuestion({
         text: "", subject: "", type: "MULTIPLE_CHOICE", correctOption: "A", explanation: "",
         optionA: "", optionB: "", optionC: "", optionD: "", optionE: "", imageUrl: ""
       });
     } catch (err) {
-      alert("Erro ao salvar a questão.");
+      showAlert({
+        type: "error",
+        title: "Erro",
+        message: "Erro ao salvar a questão."
+      });
     }
   };
 

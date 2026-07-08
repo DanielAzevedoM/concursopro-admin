@@ -46,6 +46,6 @@ export class ApiService {
       return;
     }
     const message = error.response?.data?.message || error.message || 'Ocorreu um erro na requisição.';
-    alert(message); // Ou substituir por um Toast
+    console.error("API Error:", message);
   }
 }

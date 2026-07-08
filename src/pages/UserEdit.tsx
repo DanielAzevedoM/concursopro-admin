@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ApiService } from "../services/ApiService";
 import { ArrowLeft, Save } from "lucide-react";
+import { useAlert } from "../contexts/AlertContext";
 
 export default function UserEdit() {
+  const { showAlert } = useAlert();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -28,8 +30,12 @@ export default function UserEdit() {
         });
       } catch (err) {
         console.error("Erro ao buscar usuário", err);
-        alert("Erro ao buscar usuário.");
-        navigate("/");
+        showAlert({
+          type: "error",
+          title: "Erro",
+          message: "Erro ao buscar usuário.",
+          onConfirm: () => navigate("/")
+        });
       } finally {
         setLoading(false);
       }
@@ -42,11 +48,19 @@ export default function UserEdit() {
     setSaving(true);
     try {
       await ApiService.put(`/users/${id}`, formData);
-      alert("Usuário atualizado com sucesso!");
-      navigate("/");
+      showAlert({
+        type: "success",
+        title: "Sucesso!",
+        message: "Usuário atualizado com sucesso!",
+        onConfirm: () => navigate("/")
+      });
     } catch (err) {
       console.error("Erro ao atualizar", err);
-      alert("Erro ao atualizar usuário.");
+      showAlert({
+        type: "error",
+        title: "Erro",
+        message: "Erro ao atualizar usuário."
+      });
     } finally {
       setSaving(false);
     }

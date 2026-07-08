@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { User, Trash2, Pencil, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../services/api";
+import { useAlert } from "../contexts/AlertContext";
 
 export default function UsersManagement() {
+  const { showAlert } = useAlert();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -25,14 +27,28 @@ export default function UsersManagement() {
   }, []);
 
   const handleDelete = async (id: string) => {
-    if (confirm("Tem certeza que deseja deletar este usuário?")) {
-      try {
-        await api.delete(`/users/${id}`);
-        setUsers(users.filter(u => u.id !== id));
-      } catch (err) {
-        alert("Erro ao deletar.");
+    showAlert({
+      type: "warning",
+      title: "Deletar Usuário",
+      message: "Tem certeza que deseja deletar este usuário?",
+      onConfirm: async () => {
+        try {
+          await api.delete(`/users/${id}`);
+          setUsers(users.filter(u => u.id !== id));
+          showAlert({
+            type: "success",
+            title: "Sucesso!",
+            message: "Usuário deletado."
+          });
+        } catch (err) {
+          showAlert({
+            type: "error",
+            title: "Erro",
+            message: "Erro ao deletar usuário."
+          });
+        }
       }
-    }
+    });
   };
 
   return (

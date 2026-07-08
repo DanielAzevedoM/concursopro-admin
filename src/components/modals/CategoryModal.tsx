@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { ApiService } from "../../services/ApiService";
+import { useAlert } from "../../contexts/AlertContext";
 
 interface CategoryModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface CategoryModalProps {
 }
 
 export default function CategoryModal({ isOpen, onClose, onSuccess, initialData }: CategoryModalProps) {
+  const { showAlert } = useAlert();
   const [formData, setFormData] = useState({ name: "", description: "" });
   const [saving, setSaving] = useState(false);
 
@@ -35,9 +37,18 @@ export default function CategoryModal({ isOpen, onClose, onSuccess, initialData 
       setFormData({ name: "", description: "" });
       onSuccess();
       onClose();
+      showAlert({
+        type: "success",
+        title: "Sucesso!",
+        message: "Concurso salvo com sucesso!"
+      });
     } catch (err) {
       console.error("Erro ao salvar concurso", err);
-      alert("Erro ao salvar concurso.");
+      showAlert({
+        type: "error",
+        title: "Erro",
+        message: "Erro ao salvar concurso."
+      });
     } finally {
       setSaving(false);
     }
@@ -52,7 +63,7 @@ export default function CategoryModal({ isOpen, onClose, onSuccess, initialData 
             <X className="w-5 h-5" />
           </button>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Concurso</label>
@@ -65,7 +76,7 @@ export default function CategoryModal({ isOpen, onClose, onSuccess, initialData 
               placeholder="Ex: SEFAZ SP"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
             <textarea

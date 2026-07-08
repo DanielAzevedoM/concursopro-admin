@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, UploadCloud } from "lucide-react";
 import { ApiService } from "../../services/ApiService";
+import { useAlert } from "../../contexts/AlertContext";
 
 interface QuestionEditModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface QuestionEditModalProps {
 }
 
 export default function QuestionEditModal({ isOpen, onClose, onSuccess, initialData }: QuestionEditModalProps) {
+  const { showAlert } = useAlert();
   const [formData, setFormData] = useState({
     text: "",
     subject: "",
@@ -61,9 +63,18 @@ export default function QuestionEditModal({ isOpen, onClose, onSuccess, initialD
       await ApiService.put(`/questions/${initialData.id}`, formData);
       onSuccess();
       onClose();
+      showAlert({
+        type: "success",
+        title: "Sucesso!",
+        message: "Questão atualizada com sucesso!"
+      });
     } catch (err) {
       console.error("Erro ao salvar questão", err);
-      alert("Erro ao salvar questão.");
+      showAlert({
+        type: "error",
+        title: "Erro",
+        message: "Erro ao salvar questão."
+      });
     } finally {
       setSaving(false);
     }

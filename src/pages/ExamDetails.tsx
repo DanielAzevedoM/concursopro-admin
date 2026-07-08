@@ -3,8 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, FileQuestion, Pencil, Trash2, Save } from "lucide-react";
 import { api } from "../services/api";
 import QuestionEditModal from "../components/modals/QuestionEditModal";
+import { useAlert } from "../contexts/AlertContext";
 
 export default function ExamDetails() {
+  const { showAlert } = useAlert();
   const { id } = useParams();
   const navigate = useNavigate();
   
@@ -40,24 +42,46 @@ export default function ExamDetails() {
     setSaving(true);
     try {
       await api.put(`/categories/exams/${id}`, formData);
-      alert("Dados da prova atualizados!");
+      showAlert({
+        type: "success",
+        title: "Sucesso!",
+        message: "Dados da prova atualizados!"
+      });
       loadData();
     } catch (err) {
-      alert("Erro ao atualizar prova");
+      showAlert({
+        type: "error",
+        title: "Erro",
+        message: "Erro ao atualizar prova."
+      });
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteQuestion = async (qId: string) => {
-    if (window.confirm("Deseja realmente excluir esta questão?")) {
-      try {
-        await api.delete(`/questions/${qId}`);
-        loadData();
-      } catch (err) {
-        alert("Erro ao deletar questão.");
+    showAlert({
+      type: "warning",
+      title: "Excluir Questão",
+      message: "Deseja realmente excluir esta questão?",
+      onConfirm: async () => {
+        try {
+          await api.delete(`/questions/${qId}`);
+          loadData();
+          showAlert({
+            type: "success",
+            title: "Sucesso!",
+            message: "Questão deletada."
+          });
+        } catch (err) {
+          showAlert({
+            type: "error",
+            title: "Erro",
+            message: "Erro ao deletar questão."
+          });
+        }
       }
-    }
+    });
   };
 
   const openEditModal = (question: any) => {
