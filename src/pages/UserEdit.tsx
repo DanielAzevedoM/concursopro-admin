@@ -23,6 +23,7 @@ export default function UserEdit() {
         setFormData({
           name: user.name,
           email: user.email,
+          password: "",
           planType: user.planType,
         });
       } catch (err) {
