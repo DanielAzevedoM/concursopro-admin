@@ -28,9 +28,9 @@ export default function CategoryModal({ isOpen, onClose, onSuccess, initialData 
     setSaving(true);
     try {
       if (initialData) {
-        await ApiService.put(`/admin/categories/${initialData.id}`, formData);
+        await ApiService.put(`/categories/${initialData.id}`, formData);
       } else {
-        await ApiService.post("/admin/categories", formData);
+        await ApiService.post("/categories", formData);
       }
       setFormData({ name: "", description: "" });
       onSuccess();

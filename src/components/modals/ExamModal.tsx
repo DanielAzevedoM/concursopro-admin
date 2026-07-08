@@ -47,9 +47,9 @@ export default function ExamModal({ isOpen, onClose, onSuccess, categories, init
     setSaving(true);
     try {
       if (initialData) {
-        await ApiService.put(`/admin/categories/exams/${initialData.id}`, formData);
+        await ApiService.put(`/categories/exams/${initialData.id}`, formData);
       } else {
-        await ApiService.post("/admin/categories/exams", formData);
+        await ApiService.post("/categories/exams", formData);
       }
       setFormData({ categoryId: "", name: "", institution: "", year: new Date().getFullYear().toString(), role: "" });
       onSuccess();

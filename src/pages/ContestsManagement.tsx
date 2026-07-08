@@ -34,7 +34,7 @@ export default function ContestsManagement() {
   const handleDeleteCategory = async (id: string) => {
     if (window.confirm("ATENÇÃO: Excluir este concurso apagará TODAS as provas e questões vinculadas a ele. Deseja continuar?")) {
       try {
-        await api.delete(`/admin/categories/${id}`);
+        await api.delete(`/categories/${id}`);
         loadData();
       } catch (err) {
         console.error("Erro ao deletar categoria", err);
@@ -46,7 +46,7 @@ export default function ContestsManagement() {
   const handleDeleteExam = async (id: string) => {
     if (window.confirm("ATENÇÃO: Excluir esta prova apagará TODAS as questões vinculadas a ela. Deseja continuar?")) {
       try {
-        await api.delete(`/admin/categories/exams/${id}`);
+        await api.delete(`/categories/exams/${id}`);
         loadData();
       } catch (err) {
         console.error("Erro ao deletar prova", err);
