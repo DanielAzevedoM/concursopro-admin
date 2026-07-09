@@ -4,7 +4,8 @@ import { api } from "../services/api";
 import { useAlert } from "../contexts/AlertContext";
 
 interface ParsedQuestion {
-  text: string;
+  baseText?: string;
+  questionText: string;
   subject?: string;
   optionA?: string;
   optionB?: string;
@@ -20,15 +21,16 @@ interface ParsedQuestion {
 export default function QuestionsImporter() {
   const { showAlert } = useAlert();
   const [activeTab, setActiveTab] = useState<"BULK" | "SINGLE">("BULK");
-  
+
   // Shared State
   const [categories, setCategories] = useState<any[]>([]);
   const [exams, setExams] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedExam, setSelectedExam] = useState("");
-  
+
   // Bulk State
   const [rawText, setRawText] = useState("");
+  const [bulkGabarito, setBulkGabarito] = useState("");
   const [subjectInput, setSubjectInput] = useState("");
   const [questionType, setQuestionType] = useState<"MULTIPLE_CHOICE" | "RIGHT_WRONG">("MULTIPLE_CHOICE");
   const [globalExplanation, setGlobalExplanation] = useState("");
@@ -37,7 +39,7 @@ export default function QuestionsImporter() {
 
   // Single State
   const [singleQuestion, setSingleQuestion] = useState<ParsedQuestion>({
-    text: "",
+    questionText: "",
     subject: "",
     type: "MULTIPLE_CHOICE",
     correctOption: "A",
@@ -65,38 +67,89 @@ export default function QuestionsImporter() {
     if (!rawText.trim()) return;
 
     const questions: ParsedQuestion[] = [];
-    const qSplit = rawText.split(/(?=\b\d+\s*[.-])/);
-    
-    for (const block of qSplit) {
-      if (!block.trim()) continue;
-      
-      const q: ParsedQuestion = {
-        text: "",
-        subject: subjectInput || "Outros",
-        type: questionType,
-        explanation: globalExplanation
-      };
+    let textToParse = rawText;
+    let answerKey: Record<string, string> = {};
 
-      if (questionType === "RIGHT_WRONG") {
-        q.text = block.trim();
-        q.correctOption = "C"; 
-        questions.push(q);
-      } else {
-        const parts = block.split(/(?=\b[a-fA-F][.)\s-]+)/);
-        q.text = parts[0].trim();
-        
-        for (let i = 1; i < parts.length; i++) {
-          const optText = parts[i].trim();
-          const letter = optText.charAt(0).toUpperCase();
-          const optionValue = optText.substring(2).trim();
+    // 1. Extrair o Gabarito
+    let gabaritoText = bulkGabarito;
+    const gabaritoMatch = textToParse.match(/Padr[ãa]o.*gabarito:\s*([\s\S]*)/i);
+    if (gabaritoMatch) {
+      gabaritoText += "\n" + gabaritoMatch[1];
+      textToParse = textToParse.substring(0, gabaritoMatch.index);
+    }
 
-          if (letter === "A") q.optionA = optionValue;
-          if (letter === "B") q.optionB = optionValue;
-          if (letter === "C") q.optionC = optionValue;
-          if (letter === "D") q.optionD = optionValue;
-          if (letter === "E") q.optionE = optionValue;
+    if (gabaritoText) {
+      const lines = gabaritoText.split('\n');
+      for (const line of lines) {
+        const match = line.trim().match(/^(\d+)[.)-]?\s*([a-zA-Z])/);
+        if (match) {
+          answerKey[match[1]] = match[2].toUpperCase();
         }
-        questions.push(q);
+      }
+    }
+
+    // 2. Separar blocos por [TEXTO BASE]
+    const blocks = textToParse.split(/\[TEXTO BASE\]/i);
+
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i].trim();
+      if (!block) continue;
+
+      const qSplit = block.split(/(?=(?:^|\n)\d+[.)-]\s+)/);
+      let currentTextoBase = "";
+
+      if (i > 0) {
+        currentTextoBase = qSplit[0].trim();
+      }
+
+      for (let j = 0; j < qSplit.length; j++) {
+        const chunk = qSplit[j].trim();
+        if (!chunk) continue;
+
+        const match = chunk.match(/^(\d+)[.)-]\s+([\s\S]*)/);
+        if (match) {
+          const qNumber = match[1];
+          let qContent = match[2].trim();
+          const ans = answerKey[qNumber];
+          
+          if (ans === "X") {
+            continue; // Pula questões anuladas
+          }
+
+          const q: ParsedQuestion = {
+            baseText: currentTextoBase,
+            questionText: "",
+            subject: subjectInput || "Outros",
+            type: questionType,
+            explanation: globalExplanation
+          };
+
+          if (questionType === "RIGHT_WRONG") {
+            q.questionText = qContent;
+            q.correctOption = ans || "C";
+            questions.push(q);
+          } else {
+            const parts = qContent.split(/(?=(?:^|\n)\s*[a-fA-F][.)-]\s+)/);
+            q.questionText = parts[0].trim();
+
+            for (let k = 1; k < parts.length; k++) {
+              const optText = parts[k].trim();
+              const letterMatch = optText.match(/^([a-fA-F])[.)-]\s+([\s\S]*)/);
+              if (letterMatch) {
+                const letter = letterMatch[1].toUpperCase();
+                const optionValue = letterMatch[2].trim();
+
+                if (letter === "A") q.optionA = optionValue;
+                if (letter === "B") q.optionB = optionValue;
+                if (letter === "C") q.optionC = optionValue;
+                if (letter === "D") q.optionD = optionValue;
+                if (letter === "E") q.optionE = optionValue;
+              }
+            }
+            q.correctOption = ans || "A";
+            questions.push(q);
+          }
+        }
       }
     }
 
@@ -114,15 +167,37 @@ export default function QuestionsImporter() {
       return;
     }
 
-    const payload = parsedQuestions.map(q => ({
-      ...q,
-      categoryId: selectedCategory,
-      examId: selectedExam,
-      correctOption: q.correctOption || "A",
-    }));
+    const scopesMap = new Map<string, any>();
+
+    parsedQuestions.forEach(q => {
+      const baseText = q.baseText || "";
+      if (!scopesMap.has(baseText)) {
+        scopesMap.set(baseText, {
+          categoryId: selectedCategory,
+          examId: selectedExam,
+          text: baseText,
+          questions: []
+        });
+      }
+
+      scopesMap.get(baseText).questions.push({
+        text: q.questionText,
+        subject: q.subject,
+        type: q.type,
+        correctOption: q.correctOption,
+        explanation: q.explanation,
+        optionA: q.optionA,
+        optionB: q.optionB,
+        optionC: q.optionC,
+        optionD: q.optionD,
+        optionE: q.optionE,
+      });
+    });
+
+    const payload = Array.from(scopesMap.values());
 
     try {
-      await api.post("/questions/bulk", { questions: payload });
+      await api.post("/questions/bulk", { scopes: payload });
       showAlert({
         type: "success",
         title: "Sucesso!",
@@ -163,7 +238,7 @@ export default function QuestionsImporter() {
       return;
     }
 
-    if (!singleQuestion.text.trim()) {
+    if (!singleQuestion.questionText.trim()) {
       showAlert({
         type: "warning",
         title: "Atenção",
@@ -172,22 +247,34 @@ export default function QuestionsImporter() {
       return;
     }
 
-    const payload = {
-      ...singleQuestion,
+    const payload = [{
       categoryId: selectedCategory,
       examId: selectedExam,
-    };
+      text: "",
+      imageUrl: singleQuestion.imageUrl,
+      questions: [{
+        text: singleQuestion.questionText,
+        subject: singleQuestion.subject,
+        type: singleQuestion.type,
+        correctOption: singleQuestion.correctOption,
+        explanation: singleQuestion.explanation,
+        optionA: singleQuestion.optionA,
+        optionB: singleQuestion.optionB,
+        optionC: singleQuestion.optionC,
+        optionD: singleQuestion.optionD,
+        optionE: singleQuestion.optionE,
+      }]
+    }];
 
     try {
-      // Reusing bulk endpoint for a single question since we don't have a specific POST /questions in the controller.
-      await api.post("/questions/bulk", { questions: [payload] });
+      await api.post("/questions/bulk", { scopes: payload });
       showAlert({
         type: "success",
         title: "Sucesso!",
         message: "Questão salva com sucesso!"
       });
       setSingleQuestion({
-        text: "", subject: "", type: "MULTIPLE_CHOICE", correctOption: "A", explanation: "",
+        questionText: "", subject: "", type: "MULTIPLE_CHOICE", correctOption: "A", explanation: "",
         optionA: "", optionB: "", optionC: "", optionD: "", optionE: "", imageUrl: ""
       });
     } catch (err) {
@@ -208,13 +295,13 @@ export default function QuestionsImporter() {
 
       {/* Tabs */}
       <div className="flex flex-col sm:flex-row bg-gray-100 p-1 rounded-lg w-full sm:w-fit">
-        <button 
+        <button
           onClick={() => setActiveTab("BULK")}
           className={`px-6 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "BULK" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
         >
           Importação em Massa
         </button>
-        <button 
+        <button
           onClick={() => setActiveTab("SINGLE")}
           className={`px-6 py-2 rounded-md text-sm font-bold transition-all ${activeTab === "SINGLE" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
         >
@@ -227,8 +314,8 @@ export default function QuestionsImporter() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 pb-6 border-b border-gray-100">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Concurso Pai</label>
-            <select 
-              value={selectedCategory} 
+            <select
+              value={selectedCategory}
               onChange={e => setSelectedCategory(e.target.value)}
               className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-gray-900 outline-none"
             >
@@ -238,13 +325,13 @@ export default function QuestionsImporter() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Prova Específica</label>
-            <select 
-              value={selectedExam} 
+            <select
+              value={selectedExam}
               onChange={e => setSelectedExam(e.target.value)}
               className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-gray-900 outline-none"
             >
               <option value="">Selecione a prova...</option>
-              {exams.filter(e => e.category.id === selectedCategory).map(e => (
+              {exams.filter(e => e.category?.id === selectedCategory).map(e => (
                 <option key={e.id} value={e.id}>{e.name} ({e.year})</option>
               ))}
             </select>
@@ -257,7 +344,7 @@ export default function QuestionsImporter() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <h3 className="font-bold text-gray-900 text-lg">Configuração em Massa</h3>
               {step === "PREVIEW" && (
-                <button 
+                <button
                   onClick={handleSaveBulk}
                   className="bg-gray-900 hover:bg-black text-white px-6 py-2.5 rounded-lg font-medium flex items-center gap-2"
                 >
@@ -269,8 +356,8 @@ export default function QuestionsImporter() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Formato da Prova</label>
-                <select 
-                  value={questionType} 
+                <select
+                  value={questionType}
                   onChange={e => setQuestionType(e.target.value as any)}
                   className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-gray-900 outline-none"
                 >
@@ -280,8 +367,8 @@ export default function QuestionsImporter() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Assunto Global (Opcional)</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={subjectInput}
                   onChange={e => setSubjectInput(e.target.value)}
                   placeholder="Ex: Direito Penal"
@@ -302,16 +389,25 @@ export default function QuestionsImporter() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Gabarito/Explicação Padrão (Opcional)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Gabarito das Questões (Obrigatório)</label>
+                  <textarea
+                    className="w-full h-32 border border-emerald-300 bg-emerald-50 rounded-lg p-4 font-mono text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                    placeholder="Cole a lista do gabarito aqui (Ex: 1. C \n2. E \n3. X). Você também pode colar no final do texto da prova."
+                    value={bulkGabarito}
+                    onChange={e => setBulkGabarito(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Explicação/Comentário Padrão (Opcional)</label>
                   <textarea
                     className="w-full h-24 border border-gray-300 rounded-lg p-4 text-sm focus:ring-2 focus:ring-gray-900 outline-none"
-                    placeholder="Você pode colar comentários ou o gabarito geral aqui. Será aplicado a todas as questões geradas."
+                    placeholder="Você pode colar comentários aqui. Este texto será salvo como a 'explicação' de todas as questões."
                     value={globalExplanation}
                     onChange={e => setGlobalExplanation(e.target.value)}
                   />
                 </div>
                 <div className="flex justify-end">
-                  <button 
+                  <button
                     onClick={handleParse}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium flex items-center gap-2"
                   >
@@ -327,13 +423,19 @@ export default function QuestionsImporter() {
                     Voltar e editar texto
                   </button>
                 </div>
-                
+
                 <div className="space-y-4">
                   {parsedQuestions.map((q, i) => (
                     <div key={i} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      {q.baseText && (
+                        <div className="mb-4 bg-white p-3 border border-gray-200 rounded text-sm text-gray-600">
+                          <span className="font-bold block mb-1">Texto Base:</span>
+                          {q.baseText}
+                        </div>
+                      )}
                       <div className="font-bold text-sm text-indigo-600 mb-2">{q.subject}</div>
-                      <p className="text-gray-900 font-medium whitespace-pre-wrap mb-4">{q.text}</p>
-                      
+                      <p className="text-gray-900 font-medium whitespace-pre-wrap mb-4">{q.questionText}</p>
+
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600">
                         {q.type === "RIGHT_WRONG" ? (
                           <>
@@ -379,9 +481,13 @@ export default function QuestionsImporter() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Formato da Questão</label>
-                <select 
-                  value={singleQuestion.type} 
-                  onChange={e => setSingleQuestion({...singleQuestion, type: e.target.value as any})}
+                <select
+                  value={singleQuestion.type}
+                  onChange={e => setSingleQuestion({
+                    ...singleQuestion,
+                    type: e.target.value as any,
+                    correctOption: e.target.value === "RIGHT_WRONG" ? "C" : "A"
+                  })}
                   className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-gray-900 outline-none"
                 >
                   <option value="MULTIPLE_CHOICE">Múltipla Escolha (ABCDE)</option>
@@ -390,10 +496,10 @@ export default function QuestionsImporter() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Assunto</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={singleQuestion.subject}
-                  onChange={e => setSingleQuestion({...singleQuestion, subject: e.target.value})}
+                  onChange={e => setSingleQuestion({ ...singleQuestion, subject: e.target.value })}
                   className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-gray-900 outline-none"
                 />
               </div>
@@ -403,8 +509,8 @@ export default function QuestionsImporter() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Enunciado (Obrigatório)</label>
               <textarea
                 className="w-full h-32 border border-gray-300 rounded-lg p-4 text-sm focus:ring-2 focus:ring-gray-900 outline-none resize-y"
-                value={singleQuestion.text}
-                onChange={e => setSingleQuestion({...singleQuestion, text: e.target.value})}
+                value={singleQuestion.questionText}
+                onChange={e => setSingleQuestion({ ...singleQuestion, questionText: e.target.value })}
               />
             </div>
 
@@ -412,8 +518,8 @@ export default function QuestionsImporter() {
             <div className="bg-gray-50 border border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center relative">
               {singleQuestion.imageUrl ? (
                 <div className="relative w-full max-w-md">
-                  <button 
-                    onClick={() => setSingleQuestion({...singleQuestion, imageUrl: ""})}
+                  <button
+                    onClick={() => setSingleQuestion({ ...singleQuestion, imageUrl: "" })}
                     className="absolute -top-3 -right-3 bg-red-100 text-red-600 p-1.5 rounded-full hover:bg-red-200 transition-colors z-10"
                   >
                     <X className="w-4 h-4" />
@@ -425,8 +531,8 @@ export default function QuestionsImporter() {
                   <UploadCloud className="w-10 h-10 text-gray-400 mx-auto mb-2" />
                   <p className="text-sm text-gray-600 font-medium">Clique para adicionar uma imagem à questão</p>
                   <p className="text-xs text-gray-400 mt-1">PNG, JPG, GIF (Máx 2MB recomendado)</p>
-                  <input 
-                    type="file" 
+                  <input
+                    type="file"
                     accept="image/*"
                     onChange={handleImageUpload}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -443,7 +549,7 @@ export default function QuestionsImporter() {
                     <span className="font-bold text-gray-700 w-6">{opt})</span>
                     <input
                       type="text"
-                      value={singleQuestion[`option${opt}` as keyof typeof singleQuestion]}
+                      value={singleQuestion[`option${opt}` as keyof typeof singleQuestion] as string}
                       onChange={(e) => setSingleQuestion({ ...singleQuestion, [`option${opt}`]: e.target.value })}
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 outline-none transition-all"
                     />
@@ -456,17 +562,17 @@ export default function QuestionsImporter() {
               <div>
                 <label className="block text-sm font-bold text-emerald-700 mb-2">Gabarito (Correta)</label>
                 {singleQuestion.type === "MULTIPLE_CHOICE" ? (
-                  <select 
+                  <select
                     value={singleQuestion.correctOption}
-                    onChange={e => setSingleQuestion({...singleQuestion, correctOption: e.target.value})}
+                    onChange={e => setSingleQuestion({ ...singleQuestion, correctOption: e.target.value })}
                     className="w-full border border-emerald-300 bg-emerald-50 text-emerald-900 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold"
                   >
                     {["A", "B", "C", "D", "E"].map(opt => <option key={opt} value={opt}>Alternativa {opt}</option>)}
                   </select>
                 ) : (
-                  <select 
+                  <select
                     value={singleQuestion.correctOption}
-                    onChange={e => setSingleQuestion({...singleQuestion, correctOption: e.target.value})}
+                    onChange={e => setSingleQuestion({ ...singleQuestion, correctOption: e.target.value })}
                     className="w-full border border-emerald-300 bg-emerald-50 text-emerald-900 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold"
                   >
                     <option value="C">CERTO</option>
@@ -479,13 +585,13 @@ export default function QuestionsImporter() {
                 <textarea
                   className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-gray-900 outline-none resize-y"
                   value={singleQuestion.explanation}
-                  onChange={e => setSingleQuestion({...singleQuestion, explanation: e.target.value})}
+                  onChange={e => setSingleQuestion({ ...singleQuestion, explanation: e.target.value })}
                 />
               </div>
             </div>
 
             <div className="flex justify-end pt-4 border-t">
-              <button 
+              <button
                 onClick={handleSaveSingle}
                 className="bg-gray-900 hover:bg-black text-white px-8 py-3 rounded-lg font-bold flex items-center gap-2"
               >
