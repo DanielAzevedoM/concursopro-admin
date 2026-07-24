@@ -13,6 +13,7 @@ interface QuestionEditModalProps {
 export default function QuestionEditModal({ isOpen, onClose, onSuccess, initialData }: QuestionEditModalProps) {
   const { showAlert } = useAlert();
   const [formData, setFormData] = useState({
+    baseText: "",
     text: "",
     subject: "",
     optionA: "",
@@ -29,6 +30,7 @@ export default function QuestionEditModal({ isOpen, onClose, onSuccess, initialD
   useEffect(() => {
     if (initialData) {
       setFormData({
+        baseText: initialData.scope?.text || "",
         text: initialData.text || "",
         subject: initialData.subject || "",
         optionA: initialData.optionA || "",
@@ -113,6 +115,17 @@ export default function QuestionEditModal({ isOpen, onClose, onSuccess, initialD
               value={formData.subject}
               onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Texto Base (Para a questão atual e relacionadas)</label>
+            <textarea
+              rows={4}
+              value={formData.baseText}
+              onChange={(e) => setFormData({ ...formData, baseText: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-y"
+              placeholder="Ex: Texto motivador, situação hipotética, etc."
             />
           </div>
 

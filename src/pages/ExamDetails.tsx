@@ -85,7 +85,11 @@ export default function ExamDetails() {
   };
 
   const openEditModal = (question: any) => {
-    setEditingQuestion(question);
+    setEditingQuestion({
+      ...question,
+      category: exam?.category,
+      exam: { id: exam?.id, name: exam?.name }
+    });
     setIsEditModalOpen(true);
   };
 

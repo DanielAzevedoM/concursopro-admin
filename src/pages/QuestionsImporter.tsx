@@ -18,9 +18,155 @@ interface ParsedQuestion {
   imageUrl?: string;
 }
 
+const PROMPT_CESPE = `Atue como um especialista em formatação de dados e processamento de textos de concursos públicos. Seu objetivo é receber o texto bruto de uma prova do CESPE/CEBRASPE, a lista de matérias (conteúdo programático) e o respectivo gabarito, formatando-os em dois blocos distintos, padronizados e dentro de blocos de código.
+
+Siga rigorosamente as regras abaixo:
+
+## REGRAS PARA O BLOCO 1 (PROVA)
+1. Coloque todo o resultado do Bloco 1 dentro de um bloco de código markdown (iniciado e terminado com \`\`\`text).
+2. Ignorar Cabeçalhos e Instruções: Remova textos padrões da banca (ex: "Cada um dos itens da prova objetiva...", "Espaço livre", "CESPE | CEBRASPE", datas de aplicação, etc.).
+3. Limpeza de Sujeira de PDF: Remova as numerações de linhas soltas no meio do texto (ex: \\t1, 4, 7, 10) e junte as quebras de linha indesejadas para formar parágrafos contínuos e coesos.
+4. Identificação de Matéria: Analise o conteúdo de cada texto base e das questões vinculadas a ele. Compare esse conteúdo com a lista de "MATÉRIAS" fornecida e identifique qual é a disciplina correta. Adicione a tag \`[MATÉRIA: Nome da Matéria]\` em uma linha isolada.
+5. Textos de Referência: Sempre que houver um texto, poema, figura ou situação que sirva de base para uma ou mais questões, coloque a tag \`[TEXTO BASE]\` imediatamente abaixo da tag da matéria. 
+   Exemplo de estrutura:
+   [MATÉRIA: LÍNGUA PORTUGUESA]
+   [TEXTO BASE]
+   O nome é o nosso rosto na multidão...
+6. Formatação e Numeração de Questões: 
+   - MANTENHA ESTRITAMENTE a numeração original das questões. Se o bloco começar na questão 40, inicie com 40.
+   - Formato: "[Número original da questão]. [Texto da questão]"
+   - Em questões que possuam a estrutura "Situação hipotética: [...] Assertiva: [...]", mantenha essa estrutura clara na mesma linha ou no mesmo parágrafo da questão.
+7. Inicie a resposta deste bloco com o título: "BLOCO 1 (Copie e cole na Caixa de Texto da Prova)" fora do bloco de código, e em seguida abra o bloco de código com o conteúdo.
+
+## REGRAS PARA O BLOCO 2 (GABARITO)
+1. Coloque todo o resultado do Bloco 2 dentro de um bloco de código markdown (iniciado e terminado com \`\`\`text).
+2. Extraia a relação exata de "Número da Questão -> Resposta" da tabela/matriz fornecida.
+3. Converta a tabela para uma lista vertical simples.
+4. MANTENHA ESTRITAMENTE a numeração original para garantir o vínculo perfeito com a prova.
+5. Formato exigido: [Número da Questão]. [Letra C, E ou X] (onde X representa questão anulada). Exemplo:
+   1. C
+   2. E
+   3. X
+6. Inicie a resposta deste bloco com o título: "BLOCO 2 (Copie e cole na Caixa de Gabarito)" fora do bloco de código.
+
+## DINÂMICA DE EXECUÇÃO
+- Se eu enviar a Prova e as Matérias primeiro, gere o **BLOCO 1** e, ao final, escreva explicitamente: "Por favor, envie o texto do gabarito para que eu possa gerar o BLOCO 2."
+- Se eu enviar a Prova, as Matérias e o Gabarito na mesma mensagem, entregue os dois blocos em sequência.
+
+Aqui estão os dados brutos para você formatar:
+
+[COLE AQUI A LISTA DE MATÉRIAS]
+
+[COLE AQUI A PROVA]
+
+[COLE AQUI O GABARITO (SE JÁ TIVER)]`;
+
+const EXAMPLE_CESPE = `BLOCO 1 (Copie e cole na Caixa de Texto da Prova)
+\`\`\`text
+[MATÉRIA: LÍNGUA PORTUGUESA]
+[TEXTO BASE]
+A vida humana só viceja sob algum tipo de luz, de preferência a do sol, tão óbvia quanto essencial. Somos animais diurnos, por mais que boêmios da pá virada e vampiros em geral discordem dessa afirmativa. Poucas vezes a gente pensa nisso, do mesmo jeito que devem ser poucas as pessoas que acordam se sentindo primatas, mamíferos ou terráqueos, outros rótulos que nos cabem por força da natureza das coisas.
+
+1. A forma verbal “viceja” poderia ser substituída por germina, sem prejuízo da coerência e da correção gramatical do trecho.
+2. Infere-se do primeiro parágrafo do texto que “boêmios da pá virada e vampiros” diferem biologicamente dos seres humanos em geral, os quais tendem a desempenhar a maior parte de suas atividades durante a manhã e a tarde.
+
+[MATÉRIA: RACIOCÍNIO LÓGICO-MATEMÁTICO]
+[TEXTO BASE]
+Uma unidade da PRF interceptou, durante vários meses, lotes de mercadorias vendidas por uma empresa com a emissão de notas fiscais falsas. A sequência dos números das notas fiscais apreendidas, ordenados pela data de interceptação, é a seguinte: 25, 75, 50, 150, 100, 300, 200, 600, 400, 1.200, 800, ....
+Tendo como referência essa situação hipotética, julgue os itens seguintes, considerando que a sequência dos números das notas fiscais apreendidas segue o padrão apresentado.
+
+21. O padrão apresentado pela referida sequência indica que os números podem corresponder, na ordem em que aparecem, a ordenadas de pontos do gráfico de uma função afim de inclinação positiva.
+22. A partir do padrão da sequência, infere-se que o 12.º termo é o número 1.600.
+\`\`\`
+
+BLOCO 2 (Copie e cole na Caixa de Gabarito)
+\`\`\`text
+1. E
+2. C
+21. C
+22. X
+\`\`\`
+`;
+
+const PROMPT_MULTIPLE_CHOICE = `Atue como um especialista em formatação de dados e processamento de textos de concursos públicos. Seu objetivo é receber o texto bruto de uma prova de múltipla escolha, a lista de matérias (conteúdo programático) e o respectivo gabarito, formatando-os em dois blocos distintos, padronizados e EXCLUSIVAMENTE dentro de blocos de código para que o usuário possa copiar o conteúdo com um único clique.
+
+Siga rigorosamente as regras abaixo:
+
+## REGRAS PARA O BLOCO 1 (PROVA)
+1. Formato Copiável: Coloque TODO o resultado do Bloco 1 dentro de um bloco de código markdown (iniciado e terminado com \`\`\`text). Nenhuma parte da prova deve ficar de fora desse bloco.
+2. Ignorar Cabeçalhos e Instruções: Remova textos padrões da banca (ex: "Instruções aos candidatos", "Duração da prova", datas de aplicação, nome da instituição, etc.).
+3. Limpeza de Sujeira de PDF: Remova as numerações de linhas soltas no meio do texto (ex: \\t1, 4, 7, 10) e junte as quebras de linha indesejadas para formar parágrafos contínuos e coesos.
+4. Identificação de Matéria: Analise o conteúdo de cada texto base e das questões vinculadas a ele. Compare esse conteúdo com a lista de "MATÉRIAS" fornecida e identifique qual é a disciplina correta. Adicione a tag \`[MATÉRIA: Nome da Matéria]\` em uma linha isolada.
+5. Textos de Referência: Sempre que houver um texto, poema, figura ou situação que sirva de base para uma ou mais questões, coloque a tag \`[TEXTO BASE]\` imediatamente abaixo da tag da matéria. 
+   Exemplo de estrutura:
+   [MATÉRIA: LÍNGUA PORTUGUESA]
+   [TEXTO BASE]
+   O nome é o nosso rosto na multidão...
+6. Formatação de Questões e Alternativas: 
+   - MANTENHA ESTRITAMENTE a numeração original das questões. Se o bloco começar na questão 40, inicie com 40.
+   - Formato do Enunciado: "[Número original da questão]. [Texto da questão]"
+   - Formato das Alternativas: Liste cada alternativa em uma nova linha imediatamente abaixo do enunciado, padronizando o início com letras maiúsculas seguidas de parêntese (ex: "A) ", "B) ", "C) ", "D) ", "E) "). 
+   - ATENÇÃO: Garanta que o texto de uma mesma alternativa forme um parágrafo único e contínuo, juntando quebras de linha indevidas que possam ter vindo do PDF.
+7. Inicie a resposta deste bloco com o título: "BLOCO 1 (Copie e cole na Caixa de Texto da Prova)" fora do bloco de código, e em seguida abra o bloco de código com o conteúdo.
+
+## REGRAS PARA O BLOCO 2 (GABARITO)
+1. Formato Copiável: Coloque TODO o resultado do Bloco 2 dentro de um bloco de código markdown (iniciado e terminado com \`\`\`text).
+2. Extraia a relação exata de "Número da Questão -> Resposta" da tabela/matriz fornecida.
+3. Converta a tabela para uma lista vertical simples.
+4. MANTENHA ESTRITAMENTE a numeração original para garantir o vínculo perfeito com a prova.
+5. Formato exigido: [Número da Questão]. [Letra A, B, C, D, E ou X] (onde X representa questão anulada). Exemplo:
+   1. A
+   2. C
+   3. E
+   4. X
+6. Inicie a resposta deste bloco com o título: "BLOCO 2 (Copie e cole na Caixa de Gabarito)" fora do bloco de código.
+
+## DINÂMICA DE EXECUÇÃO
+- Se eu enviar a Prova e as Matérias primeiro, gere o **BLOCO 1** e, ao final, escreva explicitamente: "Por favor, envie o texto do gabarito para que eu possa gerar o BLOCO 2."
+- Se eu enviar a Prova, as Matérias e o Gabarito na mesma mensagem, entregue os dois blocos em sequência, ambos em seus respectivos blocos de código copiáveis.
+
+Aqui estão os dados brutos para você formatar:
+
+[COLE AQUI A LISTA DE MATÉRIAS]
+
+[COLE AQUI A PROVA]
+
+[COLE AQUI O GABARITO (SE JÁ TIVER)]`;
+
+const EXAMPLE_MULTIPLE_CHOICE = `BLOCO 1 (Copie e cole na Caixa de Texto da Prova)
+\`\`\`text
+[MATÉRIA: DIREITO CONSTITUCIONAL]
+[TEXTO BASE]
+A Constituição Federal de 1988 é a lei fundamental e suprema do Brasil.
+
+1. Conforme a CF/88, qual é o prazo de validade do concurso público?
+A) Até 1 ano, prorrogável.
+B) Até 2 anos, prorrogável uma vez, por igual período.
+C) Até 3 anos.
+D) Até 4 anos.
+E) Indeterminado.
+
+[MATÉRIA: LÍNGUA PORTUGUESA]
+2. Marque a alternativa correta quanto à acentuação gráfica:
+A) Ideia
+B) Pássaro
+C) Árvore
+D) Todas as anteriores estão corretas
+E) Nenhuma das alternativas
+\`\`\`
+
+BLOCO 2 (Copie e cole na Caixa de Gabarito)
+\`\`\`text
+1. B
+2. D
+\`\`\`
+`;
+
 export default function QuestionsImporter() {
   const { showAlert } = useAlert();
   const [activeTab, setActiveTab] = useState<"BULK" | "SINGLE">("BULK");
+  const [aiPromptModal, setAiPromptModal] = useState<string | null>(null);
+  const [promptModalTab, setPromptModalTab] = useState<"PROMPT" | "EXEMPLO">("PROMPT");
 
   // Shared State
   const [categories, setCategories] = useState<any[]>([]);
@@ -88,22 +234,41 @@ export default function QuestionsImporter() {
       }
     }
 
-    // 2. Separar blocos por [TEXTO BASE]
-    const blocks = textToParse.split(/\[TEXTO BASE\]/i);
+    // 2. Separar blocos por [MATÉRIA:] ou [TEXTO BASE]
+    const blocks = textToParse.split(/(?=\[MATÉRIA:|\[TEXTO BASE\])/i);
+    let currentSubject = subjectInput || "Outros";
+    let currentTextoBase = "";
 
-    for (let i = 0; i < blocks.length; i++) {
-      const block = blocks[i].trim();
-      if (!block) continue;
+    for (const block of blocks) {
+      let blockContent = block.trim();
+      if (!blockContent) continue;
 
-      const qSplit = block.split(/(?=(?:^|\n)\d+[.)-]\s+)/);
-      let currentTextoBase = "";
-
-      if (i > 0) {
-        currentTextoBase = qSplit[0].trim();
+      const subjMatch = blockContent.match(/^\[MATÉRIA:\s*(.+?)\]/i);
+      if (subjMatch) {
+        currentSubject = subjMatch[1].trim();
+        currentTextoBase = ""; // Clear base text on new subject
+        blockContent = blockContent.substring(subjMatch[0].length).trim();
       }
 
-      for (let j = 0; j < qSplit.length; j++) {
-        const chunk = qSplit[j].trim();
+      const baseMatch = blockContent.match(/^\[TEXTO BASE\]/i);
+      if (baseMatch) {
+        blockContent = blockContent.substring(baseMatch[0].length).trim();
+      }
+
+      const qSplit = blockContent.split(/(?:^|\n)(\d+[.)-]\s+)/);
+      const prefixText = qSplit[0].trim();
+      
+      // Update base text if explicitly tagged or if there's stray text before the first question
+      if (baseMatch || prefixText) {
+        currentTextoBase = prefixText;
+      }
+
+      for (let j = 1; j < qSplit.length; j += 2) {
+        const qDelimiter = qSplit[j];
+        const qBody = qSplit[j+1];
+        if (!qDelimiter || qBody === undefined) continue;
+
+        const chunk = (qDelimiter + qBody).trim();
         if (!chunk) continue;
 
         const match = chunk.match(/^(\d+)[.)-]\s+([\s\S]*)/);
@@ -111,7 +276,7 @@ export default function QuestionsImporter() {
           const qNumber = match[1];
           let qContent = match[2].trim();
           const ans = answerKey[qNumber];
-          
+
           if (ans === "X") {
             continue; // Pula questões anuladas
           }
@@ -119,7 +284,7 @@ export default function QuestionsImporter() {
           const q: ParsedQuestion = {
             baseText: currentTextoBase,
             questionText: "",
-            subject: subjectInput || "Outros",
+            subject: currentSubject,
             type: questionType,
             explanation: globalExplanation
           };
@@ -129,11 +294,15 @@ export default function QuestionsImporter() {
             q.correctOption = ans || "C";
             questions.push(q);
           } else {
-            const parts = qContent.split(/(?=(?:^|\n)\s*[a-fA-F][.)-]\s+)/);
+            const parts = qContent.split(/(?:^|\n)(\s*[a-fA-F][.)-]\s+)/);
             q.questionText = parts[0].trim();
 
-            for (let k = 1; k < parts.length; k++) {
-              const optText = parts[k].trim();
+            for (let k = 1; k < parts.length; k += 2) {
+              const optDelimiter = parts[k];
+              const optBody = parts[k+1];
+              if (!optDelimiter || optBody === undefined) continue;
+
+              const optText = (optDelimiter + optBody).trim();
               const letterMatch = optText.match(/^([a-fA-F])[.)-]\s+([\s\S]*)/);
               if (letterMatch) {
                 const letter = letterMatch[1].toUpperCase();
@@ -356,14 +525,23 @@ export default function QuestionsImporter() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Formato da Prova</label>
-                <select
-                  value={questionType}
-                  onChange={e => setQuestionType(e.target.value as any)}
-                  className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-gray-900 outline-none"
-                >
-                  <option value="MULTIPLE_CHOICE">Múltipla Escolha (ABCDE)</option>
-                  <option value="RIGHT_WRONG">Certo / Errado (CESPE)</option>
-                </select>
+                <div className="flex gap-2 items-center">
+                  <select
+                    value={questionType}
+                    onChange={e => setQuestionType(e.target.value as any)}
+                    className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-gray-900 outline-none"
+                  >
+                    <option value="MULTIPLE_CHOICE">Múltipla Escolha (ABCDE)</option>
+                    <option value="RIGHT_WRONG">Certo / Errado (CESPE)</option>
+                  </select>
+                  <button
+                    onClick={() => setAiPromptModal(questionType === "RIGHT_WRONG" ? "CESPE" : "MULTIPLA_ESCOLHA")}
+                    className="whitespace-nowrap bg-indigo-50 text-indigo-600 border border-indigo-200 px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-indigo-100 transition-colors"
+                    title="Ver Prompt IA para este formato"
+                  >
+                    Ver Prompt IA
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Assunto Global (Opcional)</label>
@@ -601,6 +779,81 @@ export default function QuestionsImporter() {
           </div>
         )}
       </div>
+
+      {/* Modal Prompt IA */}
+      {aiPromptModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in duration-300">
+            <div className="flex flex-col border-b border-gray-100">
+              <div className="flex justify-between items-center p-6 pb-2">
+                <h2 className="text-xl font-bold text-gray-900">
+                  Prompt para IA ({aiPromptModal === "CESPE" ? "Certo / Errado" : "Múltipla Escolha"})
+                </h2>
+                <button onClick={() => setAiPromptModal(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="px-6 flex gap-4">
+                <button
+                  onClick={() => setPromptModalTab("PROMPT")}
+                  className={`py-3 px-1 border-b-2 font-semibold text-sm transition-colors ${promptModalTab === "PROMPT" ? "border-indigo-600 text-indigo-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+                >
+                  Prompt de Instrução
+                </button>
+                <button
+                  onClick={() => setPromptModalTab("EXEMPLO")}
+                  className={`py-3 px-1 border-b-2 font-semibold text-sm transition-colors ${promptModalTab === "EXEMPLO" ? "border-indigo-600 text-indigo-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+                >
+                  Exemplo de Retorno
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 bg-gray-50">
+              {promptModalTab === "PROMPT" ? (
+                <>
+                  <p className="text-gray-600 mb-4">
+                    Copie o texto abaixo e cole em uma IA como o ChatGPT ou Claude para formatar a prova e o gabarito automaticamente de acordo com as regras deste sistema.
+                  </p>
+
+                  <div className="relative">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(aiPromptModal === "CESPE" ? PROMPT_CESPE : PROMPT_MULTIPLE_CHOICE);
+                        showAlert({ type: "success", title: "Copiado!", message: "Prompt copiado para a área de transferência." });
+                      }}
+                      className="absolute top-4 right-4 bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors shadow-sm"
+                    >
+                      Copiar Prompt
+                    </button>
+                    <pre className="bg-gray-900 text-gray-100 p-6 rounded-xl overflow-x-auto text-sm whitespace-pre-wrap font-mono">
+                      {aiPromptModal === "CESPE" ? PROMPT_CESPE : PROMPT_MULTIPLE_CHOICE}
+                    </pre>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-gray-600 mb-4">
+                    Este é um exemplo de como a IA deve retornar o conteúdo após processar o seu prompt. Observe a estrutura de Blocos e Tags:
+                  </p>
+                  <pre className="bg-gray-900 text-gray-100 p-6 rounded-xl overflow-x-auto text-sm whitespace-pre-wrap font-mono">
+                    {aiPromptModal === "CESPE" ? EXAMPLE_CESPE : EXAMPLE_MULTIPLE_CHOICE}
+                  </pre>
+                </>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-gray-100 flex justify-end">
+              <button
+                onClick={() => setAiPromptModal(null)}
+                className="bg-gray-900 text-white font-semibold py-2.5 px-6 rounded-xl hover:bg-black transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
